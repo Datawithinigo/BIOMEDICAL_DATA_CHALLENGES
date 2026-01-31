@@ -254,6 +254,76 @@ def save_output(df, output_path):
     print("  - Transformation completed successfully!")
 
 
+def convert_csv_to_sav(csv_path, sav_output_path):
+    """
+    Convert CSV file to SPSS (.sav) format
+    
+    Args:
+        csv_path: Path to the input CSV file
+        sav_output_path: Path where the .sav file will be saved
+    """
+    print(f"\nConverting CSV to SPSS format...")
+    print(f"  - Reading CSV from: {csv_path}")
+    
+    try:
+        # Read the CSV file
+        df = pd.read_csv(csv_path)
+        print(f"  - Loaded {len(df)} records from CSV")
+        
+        # Create output directory if it doesn't exist
+        output_dir = os.path.dirname(sav_output_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            print(f"  - Created output directory: {output_dir}")
+        
+        # Convert and save to SPSS format
+        # Note: We need to use pyreadstat for better SAV writing support
+        try:
+            import pyreadstat
+            
+            # SPSS variable names cannot start with special characters
+            # Rename columns that start with @ to valid SPSS names
+            column_mapping = {
+                '@_id': 'id',
+                '@_index': 'index'
+            }
+            df = df.rename(columns=column_mapping)
+            print(f"  - Renamed columns for SPSS compatibility: '@_id' -> 'id', '@_index' -> 'index'")
+            
+            # Prepare column labels (optional metadata)
+            column_labels = {
+                'Howoldareyou': 'How old are you',
+                'MaritalStatus': 'Marital Status',
+                'Areyoumaleorfemale': 'Are you male or female',
+                'Yourbodyweight': 'Your body weight (kg)',
+                'Yourheight': 'Your height (cm)',
+                'id': 'Unique ID',
+                'index': 'Record Index',
+                'BMI': 'Body Mass Index',
+                'weigthStatus': 'Weight Status Category'
+            }
+            
+            # Write to SPSS format
+            pyreadstat.write_sav(df, sav_output_path, column_labels=column_labels)
+            print(f"  - Successfully saved to: {sav_output_path}")
+            print(f"  - Converted {len(df)} records to SPSS format")
+            
+        except ImportError:
+            print("  - Warning: pyreadstat not available, using pandas fallback")
+            # Fallback: Use pandas (may have limitations)
+            # Note: This requires statsmodels to be installed
+            from pandas.io.stata import StataWriter
+            # For SAV format, we'll try to use the to_stata as a workaround
+            # However, direct SAV writing requires pyreadstat
+            print("  - Error: Direct SAV conversion requires 'pyreadstat' package")
+            print("  - Please install it with: pip install pyreadstat")
+            raise ImportError("pyreadstat package is required for SAV conversion")
+            
+    except Exception as e:
+        print(f"  - Error during CSV to SAV conversion: {e}")
+        raise
+
+
 def main(process_from_sav=False):
     """
     Main transformation pipeline
@@ -303,6 +373,17 @@ def main(process_from_sav=False):
     print("="*80)
     save_output(df, final_output_path)
     
+    # Step 4: Convert CSV to SAV format
+    print("\n" + "="*80)
+    print("STEP 4: CONVERTING CSV TO SPSS FORMAT")
+    print("="*80)
+    sav_output_path = '/Users/arriazui/Desktop/master/BIOMEDICAL_DATA_CHALLENGES/4_convert_to_sav/end_file.sav'
+    try:
+        convert_csv_to_sav(final_output_path, sav_output_path)
+    except Exception as e:
+        print(f"Warning: Could not complete SAV conversion: {e}")
+        print("Note: The CSV output is still available at:", final_output_path)
+    
     # Final Summary
     print("\n" + "="*80)
     print("TRANSFORMATION SUMMARY")
@@ -312,7 +393,8 @@ def main(process_from_sav=False):
         print(f"Intermediate CSV: {intermediate_csv_path}")
     else:
         print(f"Input file:  {intermediate_csv_path}")
-    print(f"Output file: {final_output_path}")
+    print(f"CSV output:  {final_output_path}")
+    print(f"SAV output:  {sav_output_path}")
     print(f"Final record count: {len(df)}")
     print(f"\nSample of transformed data:")
     print(df.head(10).to_string())
